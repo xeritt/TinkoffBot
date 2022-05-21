@@ -27,31 +27,39 @@ import static ru.tinkoff.piapi.core.utils.MapperUtils.quotationToBigDecimal;
 @Component
 public class Bot {
     static final Logger log = LoggerFactory.getLogger(Bot.class);
-    private static InvestApi api;
-    private static String acc;
+    public static final String NO_SELECT_LIST_ACCOUNT_FOR_TRADING = "NO SELECT(/list) ACCOUNT FOR TRADING!";
+    public static final String NO_SELECT_DIRECTION = "NO SELECT DIRECTION FOR TRADING";
+    public static int INITIAL_DELAY = 5;
+    public static int PERIOD = 2;
+    public static InvestApi api;
+    private static String account;
     private static String figi;
     private static BotAnswer answer;
     //private static ScheduledFuture scheduled;
     private static ScheduledExecutorService scheduledExecutorService;
-    private TelegrammBot telebot;
+    private TelegrammBot telegrammBot;
 
-    public TelegrammBot getTelebot() {return telebot;}
+    public TelegrammBot getTelegrammBot() {return telegrammBot;}
+    public static InvestApi getApi() {return api;}
+    public static String getFigi() {return figi;}
+    public static String getAccount() {return account;}
+
     /*
-        public Bot(String token, String figi) {
-            if (Bot.apiTinkoff == null) {
-                apiTinkoff = InvestApi.createSandbox(token);
-                Bot.figi = figi;
-                log.info("Sand box mode = {}", apiTinkoff.isSandboxMode());
+            public Bot(String token, String figi) {
+                if (Bot.apiTinkoff == null) {
+                    apiTinkoff = InvestApi.createSandbox(token);
+                    Bot.figi = figi;
+                    log.info("Sand box mode = {}", apiTinkoff.isSandboxMode());
+                }
             }
-        }
-    */
+        */
     public void init(String token, String figi, TelegrammBot telebot) {
         if (Bot.api == null) {
             api = InvestApi.createSandbox(token);
             Bot.figi = figi;
             log.info("Sand box mode = {}", api.isSandboxMode());
         }
-        this.telebot = telebot;
+        this.telegrammBot = telebot;
     }
 
     public BotAnswer execCommands(String operation) {
@@ -77,6 +85,9 @@ public class Bot {
             if (operation.equalsIgnoreCase("/figi")) {
                 return setFigi(api, param);
             }
+            if (operation.equalsIgnoreCase("/period")) {
+                return setPeriod(api, param);
+            }
         } else {
             if (operation.equalsIgnoreCase("/user")) {
                 return usersService(api);
@@ -87,17 +98,17 @@ public class Bot {
             }
             if (operation.equalsIgnoreCase("/buy")){
                 OrderDirection dir = OrderDirection.ORDER_DIRECTION_BUY;
-                return ordersService(api, figi, acc, dir);
+                return ordersService(api, figi, account, dir);
             }
             if (operation.equalsIgnoreCase("/sell")){
                 OrderDirection dir = OrderDirection.ORDER_DIRECTION_SELL;
-                return ordersService(api, figi, acc, dir);
+                return ordersService(api, figi, account, dir);
             }
             if (operation.equalsIgnoreCase("/price")){
                 return getCandles(api, figi);
             }
             if (operation.equalsIgnoreCase("/del")){
-                return delAccount(api, acc);
+                return delAccount(api, account);
             }
             if (operation.equalsIgnoreCase("/add")){
                 return addAccount(api);
@@ -112,6 +123,18 @@ public class Bot {
 
         return help(api);
     }
+
+    private BotAnswer setPeriod(InvestApi api, String param) {
+        answer = new BotAnswer();
+        try {
+            PERIOD = Integer.parseInt(param);
+            answer.append("Set trading period, sec = " + param);
+        }catch (NumberFormatException e) {
+            answer.append("Error! Number format please [5 or 10])");
+        }
+        return  answer;
+    }
+
     public BotAnswer help(InvestApi api){
         BotAnswer answer = new BotAnswer();
         answer.addBtm("/add");
@@ -120,7 +143,7 @@ public class Bot {
      //   answer.addBtm("/figi");
         answer.addBtm("/start");
         answer.addBtm("/done");
-        answer.append("Commands /help /add /user /price /start /done /figi [name]");
+        answer.append("Commands /help /add /user /price /start /done /figi [name] /period [sec]");
         return  answer;
     }
 
@@ -140,7 +163,13 @@ public class Bot {
         return answer;
     }
 
+    public BigDecimal getPrice(Quotation quotation){
+        BigDecimal price = quotationToBigDecimal(quotation);
+        return price;
+    }
+
     public String printCandle(HistoricCandle candle) {
+
         BigDecimal open = quotationToBigDecimal(candle.getOpen());
         BigDecimal close = quotationToBigDecimal(candle.getClose());
         BigDecimal high = quotationToBigDecimal(candle.getHigh());
@@ -156,10 +185,8 @@ public class Bot {
         return str;
     }
 
-    public void getCandlesDay(){
-        List<HistoricCandle> candlesHour = api.getMarketDataService()
-                .getCandlesSync(figi, Instant.now().minus(1, ChronoUnit.DAYS), Instant.now(),
-                        CandleInterval.CANDLE_INTERVAL_HOUR);
+    public void showCandlesDay(){
+        List<HistoricCandle> candlesHour = getHistoricCandles(CandleInterval.CANDLE_INTERVAL_HOUR);
 
         //BotAnswer answer = new BotAnswer();
         log.info("получено {} 1-минутных свечей для инструмента с figi {}", candlesHour.size(), figi);
@@ -174,13 +201,24 @@ public class Bot {
         sendMessage(answer.getText());
     }
 
+
+    public List<HistoricCandle> getHistoricCandles(CandleInterval interval) {
+        List<HistoricCandle> candlesHour = api.getMarketDataService()
+                .getCandlesSync(figi,
+                        Instant.now().minus(1, ChronoUnit.DAYS),
+                        Instant.now(),
+                        interval
+                );
+        return candlesHour;
+    }
+
     public void sendMessage(String text){
-        String chatId = getTelebot().getChatId();
+        String chatId = getTelegrammBot().getChatId();
         SendMessage message = new SendMessage();
         message.setChatId(chatId);
         message.setText(text);
         try {
-            getTelebot().execute(message);
+            getTelegrammBot().execute(message);
         } catch (TelegramApiException e) {
             e.printStackTrace();
         }
@@ -253,13 +291,21 @@ public class Bot {
 
     public BotAnswer ordersService(InvestApi api, String figi, String mainAccount, OrderDirection direction) {
         //Выставляем заявку
+        BotAnswer answer = new BotAnswer();
 
+        if (mainAccount == null) {
+            answer.append(NO_SELECT_LIST_ACCOUNT_FOR_TRADING);
+            return answer;
+        }
+        if (direction == null) {
+            answer.append(NO_SELECT_DIRECTION);
+            return answer;
+        }
         //var accounts = api.getUserService().getAccountsSync();
         SandboxService service = api.getSandboxService();
         //var orderService = api.getSandboxService().pos
         //var accounts =  service.getAccountsSync();
         //var mainAccount = accounts.get(0).getId();
-        BotAnswer answer = new BotAnswer();
         Quotation lastPrice = api.getMarketDataService().getLastPricesSync(List.of(figi)).get(0).getPrice();
         log.info("lastPrice = {}", lastPrice);
         answer.append("lastPrice = " + lastPrice);
@@ -288,16 +334,15 @@ public class Bot {
                         UUID.randomUUID().toString()
                 ).getOrderId();
         log.info("OrderId = {}", orderId);
-        answer.append("OrderId = " + orderId);
-        answer.append("\n");
+        answer.appendln("OrderId = " + orderId);
         return answer;
     }
 
     public BotAnswer stopOrder(InvestApi api, String orderId){
         BotAnswer answer = new BotAnswer();
         SandboxService service = getService(api);
-        String mainAccount = getAccount(service);
-        service.cancelOrder(mainAccount, orderId);
+        //String mainAccount = getAccount(service);
+        service.cancelOrder(account, orderId);
         answer.append("Order " + orderId + " cancel");
         return answer;
     }
@@ -306,14 +351,21 @@ public class Bot {
         return api.getSandboxService();
     }
 
+    /*
     public static String getAccount(SandboxService service) {
         List<Account> accounts =  service.getAccountsSync();
         String mainAccount = accounts.get(0).getId();
         return mainAccount;
+    }*/
+
+    public List<OrderState> getOrderState(InvestApi api, String mainAccount){
+        SandboxService service = getService(api);
+        List<OrderState> orders = service.getOrdersSync(mainAccount);
+        return  orders;
     }
 
     public BotAnswer listOrders(InvestApi api, String mainAccount){
-        acc = mainAccount;
+        account = mainAccount;
         SandboxService service = getService(api);
         BotAnswer answer = new BotAnswer();
 
@@ -379,7 +431,6 @@ public class Bot {
         answer.appendln("figi = " + figi);
         if (accounts.size() <= 0 ) {
             answer.append("No accounts");
-
             return answer;
         }
         Account mainAccount = accounts.get(0);
@@ -390,6 +441,11 @@ public class Bot {
             answer.append("account id " + id + '\n'+"access level: "+ name + '\n');
             answer.addBtm("/list " + id);
         }
+
+        if (Bot.getAccount() == null){
+            answer.appendln(NO_SELECT_LIST_ACCOUNT_FOR_TRADING);
+        }
+        answer.appendln("Trading period, sec = " + Bot.PERIOD);
         answer.addBtm("/help");
         if (api.isSandboxMode()) return answer;
         //Получаем и печатаем информацию о текущих лимитах пользователя
@@ -420,7 +476,7 @@ public class Bot {
             scheduledExecutorService = Executors.newScheduledThreadPool(5);
             ScheduledFuture scheduled =
                     scheduledExecutorService.scheduleAtFixedRate(
-                            trade, 5, 2, TimeUnit.SECONDS);
+                            trade, INITIAL_DELAY, PERIOD, TimeUnit.SECONDS);
             answer.appendln("Start Trade Service");
         } else {
             answer.appendln("Trade Service all ready run");
