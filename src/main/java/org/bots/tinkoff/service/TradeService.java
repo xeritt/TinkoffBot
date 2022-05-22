@@ -1,6 +1,7 @@
 package org.bots.tinkoff.service;
 import org.bots.tinkoff.model.Bot;
 import org.bots.tinkoff.model.BotAnswer;
+import org.springframework.stereotype.Service;
 import ru.tinkoff.piapi.contract.v1.CandleInterval;
 import ru.tinkoff.piapi.contract.v1.HistoricCandle;
 import ru.tinkoff.piapi.contract.v1.OrderDirection;
@@ -9,7 +10,9 @@ import ru.tinkoff.piapi.contract.v1.OrderState;
 import java.math.BigDecimal;
 import java.util.List;
 
+@Service
 public class TradeService implements Runnable{
+
     private Bot bot;
     private final int limit = 1;
     static private int countOrder = 0;

@@ -1,4 +1,29 @@
+# Telegramm Tinkoff Spring Boot Bot
+Бот для торговли управляется через telegramm.  
+
 # Getting Started
+Перед запуском необхлжимо настроить ключ и токен.
+В фаайл настройки /src/main/resources/application.properties
+добавить переменные как в примере, но со своими зачениями 
+bot.username = my_telegram_name_bot
+bot.token = my_telegram_token 
+tinkoffbot.token = my_tinkoff_token 
+
+# Run 
+Для запуска проекта из консоли использйте команду:
+    mvn spring-boot:run
+
+# Bots command 
+/help - помощь
+/trade - начало торгов, создание аккаунта
+/price - скачать свечи фиги
+/orders - список ордеров
+/stop - закрыть ордер
+/start - запуск автоматической торговли
+/done - остановка автоматической торговли
+/buy - купить fifi
+/sell - продать figi
+/del - удалить аккаунт
 
 ### Reference Documentation
 For further reference, please consider the following sections:

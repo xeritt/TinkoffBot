@@ -29,7 +29,7 @@ public class Bot {
     static final Logger log = LoggerFactory.getLogger(Bot.class);
     public static final String NO_SELECT_LIST_ACCOUNT_FOR_TRADING = "NO SELECT(/list) ACCOUNT FOR TRADING!";
     public static final String NO_SELECT_DIRECTION = "NO SELECT DIRECTION FOR TRADING";
-    public static int INITIAL_DELAY = 5;
+    public static int INITIAL_DELAY = 1;
     public static int PERIOD = 2;
     public static InvestApi api;
     private static String account;
@@ -44,15 +44,11 @@ public class Bot {
     public static String getFigi() {return figi;}
     public static String getAccount() {return account;}
 
-    /*
-            public Bot(String token, String figi) {
-                if (Bot.apiTinkoff == null) {
-                    apiTinkoff = InvestApi.createSandbox(token);
-                    Bot.figi = figi;
-                    log.info("Sand box mode = {}", apiTinkoff.isSandboxMode());
-                }
-            }
-        */
+    public Bot(){}
+    public Bot(String token, String figi, TelegrammBot telebot) {
+        init(token, figi, telebot);
+    }
+
     public void init(String token, String figi, TelegrammBot telebot) {
         if (Bot.api == null) {
             api = InvestApi.createSandbox(token);
@@ -89,8 +85,12 @@ public class Bot {
                 return setPeriod(api, param);
             }
         } else {
-            if (operation.equalsIgnoreCase("/user")) {
+            if (operation.equalsIgnoreCase("/trade")) {
                 return usersService(api);
+            }
+            if (operation.equalsIgnoreCase("/orders")) {
+                //return usersService(api);
+                return listOrders(api, account);
             }
             if (operation.equalsIgnoreCase("new-account")) {
                 var acc = api.getSandboxService().openAccountSync();
@@ -137,20 +137,20 @@ public class Bot {
 
     public BotAnswer help(InvestApi api){
         BotAnswer answer = new BotAnswer();
-        answer.addBtm("/add");
-        answer.addBtm("/user");
+        //answer.addBtm("/add");
+        answer.addBtm("/trade");
         answer.addBtm("/price");
      //   answer.addBtm("/figi");
-        answer.addBtm("/start");
-        answer.addBtm("/done");
-        answer.append("Commands /help /add /user /price /start /done /figi [name] /period [sec]");
+        //answer.addBtm("/start");
+        //answer.addBtm("/done");
+        //answer.append("Commands /help /add /user /price /start /done /figi [name] /period [sec]");
+        answer.append("Commands /help /trade /price /figi [name] /period [sec]");
         return  answer;
     }
 
     public BotAnswer addAccount(InvestApi api) {
         String res = api.getSandboxService().openAccountSync();
         BotAnswer answer = help(api);
-        answer.setMessage(new StringBuilder());
         answer.append("Add new account :" + res);
         return answer;
     }
@@ -384,11 +384,6 @@ public class Bot {
             String orderId = order.getOrderId();
             String dir = order.getDirection().name();
             log.info("Figi = {}, OrderId = {}, dir = {}, ", figi , orderId, dir);
-            //answer.appendln("Figi = " + figi + "\n OrderId = " + orderId + "\n dir = " + dir );
-            /*answer.appendln("Currency = " + order.getCurrency());
-            answer.appendln("Average position = " + order.getAveragePositionPrice());
-            answer.appendln("Init price = " + order.getInitialOrderPrice());
-            answer.appendln("Total amount = " + order.getTotalOrderAmount());*/
             answer.appendln(order.toString());
             answer.appendln("Init price = " + order.getInitialOrderPrice());
             answer.addBtm("/stop "+ orderId);
@@ -429,23 +424,26 @@ public class Bot {
         List<Account> accounts = service.getAccountsSync();
         BotAnswer answer = new BotAnswer();
         answer.appendln("figi = " + figi);
+        Account mainAccount;
         if (accounts.size() <= 0 ) {
-            answer.append("No accounts");
-            return answer;
-        }
-        Account mainAccount = accounts.get(0);
-        for (Account account : accounts) {
-            String id = account.getId();
-            String name = account.getAccessLevel().name();
-            log.info("account id: {}, access level: {}", id, name);
-            answer.append("account id " + id + '\n'+"access level: "+ name + '\n');
-            answer.addBtm("/list " + id);
+            String res = service.openAccountSync();
+            account = res;
+            accounts = service.getAccountsSync();
+            mainAccount = accounts.get(0);
+            answer.append("Add account = " + res);
+        } else {
+                mainAccount = accounts.get(0);
+                account = mainAccount.getId();
         }
 
-        if (Bot.getAccount() == null){
-            answer.appendln(NO_SELECT_LIST_ACCOUNT_FOR_TRADING);
-        }
+        String name = mainAccount.getAccessLevel().name();
+        log.info("account id: {}, access level: {}", account, name);
+        answer.append("account id " + account + '\n'+"access level: "+ name + '\n');
+
         answer.appendln("Trading period, sec = " + Bot.PERIOD);
+        answer.addBtm("/orders");
+        answer.addBtm("/start");
+        answer.addBtm("/done");
         answer.addBtm("/help");
         if (api.isSandboxMode()) return answer;
         //Получаем и печатаем информацию о текущих лимитах пользователя
