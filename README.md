@@ -7,27 +7,29 @@
 добавить переменные как в примере, но со своими значениями. 
 
 Для Telegramm бота:
-bot.username = my_telegram_name_bot
-bot.token = my_telegram_token 
+* bot.username = my_telegram_name_bot
+* bot.token = my_telegram_token 
 
 Для Tinkoff бота:
-tinkoffbot.token = my_tinkoff_token 
+* tinkoffbot.token = my_tinkoff_token 
 
 # Run 
 Для запуска проекта из консоли использйте команду:
-    mvn spring-boot:run
+* mvn spring-boot:run
 
 # Bots command 
-/help - помощь
-/trade - начало торгов, создание аккаунта
-/price - скачать свечи фиги
-/orders - список ордеров
-/stop - закрыть ордер
-/start - запуск автоматической торговли
-/done - остановка автоматической торговли
-/buy - купить fifi
-/sell - продать figi
-/del - удалить аккаунт
+* /help - помощь
+* /trade - начало торгов, создание аккаунта
+* /price - скачать свечи фиги
+* /orders - список ордеров
+* /stop - закрыть ордер
+* /start - запуск автоматической торговли
+* /done - остановка автоматической торговли
+* /buy - купить figi
+* /sell - продать figi
+* /del - удалить аккаунт
+* /figi [fifiname] - поменять figi
+* /period [sec] - поменять период торговли
 
 ### Reference Documentation
 For further reference, please consider the following sections:
