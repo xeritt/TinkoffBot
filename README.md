@@ -18,7 +18,7 @@
 Для запуска проекта из консоли использйте команду:
 * mvn spring-boot:run
 
-# Bots command 
+# Telegramm bots command 
 * /help - помощь
 * /trade - начало торгов, создание аккаунта
 * /price - скачать свечи фиги
@@ -40,6 +40,10 @@ startTradeService класса Bot.
 Класс TradeService реализует простую стратегии окрытия ордера по тренду.
 Анализируются свечи за сутки и на основе информации окрытии и закрытии цены за сутки
 принимается решение об открытия ордера.
+
+# Web interface
+Можно посмотреть статус работы сервера через веб-интерфейс.
+* http://localhost:8080/
 
 ### Reference Documentation
 For further reference, please consider the following sections:
