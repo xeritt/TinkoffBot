@@ -2,11 +2,15 @@
 Бот для торговли управляется через telegramm.  
 
 # Getting Started
-Перед запуском необхлжимо настроить ключ и токен.
-В фаайл настройки /src/main/resources/application.properties
-добавить переменные как в примере, но со своими зачениями 
+Перед запуском необходимо настроить ключ и токен.
+В файл настройки /src/main/resources/application.properties
+добавить переменные как в примере, но со своими значениями. 
+
+Для Telegramm бота:
 bot.username = my_telegram_name_bot
 bot.token = my_telegram_token 
+
+Для Tinkoff бота:
 tinkoffbot.token = my_tinkoff_token 
 
 # Run 
