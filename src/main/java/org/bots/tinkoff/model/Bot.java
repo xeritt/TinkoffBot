@@ -1,8 +1,10 @@
 package org.bots.tinkoff.model;
 
 import org.bots.tinkoff.service.TradeService;
+import org.bots.tinkoff.service.TradeService2;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
@@ -39,16 +41,18 @@ public class Bot {
     private static String account;
     private static String figi;
     private static BotAnswer answer;
-    //private static ScheduledFuture scheduled;
+
     private static ScheduledExecutorService scheduledExecutorService;
     private TelegrammBot telegrammBot;
-
+    static private Runnable tradeService;
+    private List<Runnable> tradeServices = new ArrayList<>();
     public TelegrammBot getTelegrammBot() {return telegrammBot;}
     public static InvestApi getApi() {return api;}
     public static String getFigi() {return figi;}
     public static String getAccount() {return account;}
 
     public Bot(){}
+
     public Bot(String token, String figi, TelegrammBot telebot) {
         init(token, figi, telebot);
     }
@@ -58,8 +62,16 @@ public class Bot {
             api = InvestApi.createSandbox(token);
             Bot.figi = figi;
             log.info("Sand box mode = {}", api.isSandboxMode());
-        }
+            tradeService = new TradeService(this);
+         }
         this.telegrammBot = telebot;
+        // Add you strategy service
+        tradeServices.add(new TradeService(this));
+        tradeServices.add(new TradeService2(this));
+    }
+
+    public void setTradeService(Runnable tradeService) {
+        this.tradeService = tradeService;
     }
 
     public BotAnswer execCommands(String operation) {
@@ -89,6 +101,9 @@ public class Bot {
             }
             if (operation.equalsIgnoreCase("/period")) {
                 return setPeriod(api, param);
+            }
+            if (operation.equalsIgnoreCase("/select")) {
+                return selectTradeService(api, param);
             }
         } else {
             if (operation.equalsIgnoreCase("/trade")) {
@@ -125,9 +140,35 @@ public class Bot {
             if (operation.equalsIgnoreCase("/done")){
                 return stopTradeService(api);
             }
+            if (operation.equalsIgnoreCase("/strategy")){
+                return selectStrategyService(api);
+            }
         }
 
         return help(api);
+    }
+
+    private BotAnswer selectStrategyService(InvestApi api) {
+        answer = new BotAnswer();
+        for (Runnable service :tradeServices) {
+            String text = "/select " + service.getClass().getName();
+            answer.append(text);
+            answer.addBtm(text);
+        }
+        answer.addBtm("/help");
+        return answer;
+    }
+
+    private BotAnswer selectTradeService(InvestApi api, String name) {
+        for (Runnable service :tradeServices) {
+            String serviceName = service.getClass().getName();
+            if (name.equals(serviceName)){
+                answer = new BotAnswer();
+                tradeService = service;
+                answer.appendln("Current strategy " + serviceName);
+            }
+        }
+        return answer;
     }
 
     private BotAnswer setPeriod(InvestApi api, String param) {
@@ -150,7 +191,7 @@ public class Bot {
         //answer.addBtm("/start");
         //answer.addBtm("/done");
         //answer.append("Commands /help /add /user /price /start /done /figi [name] /period [sec]");
-        answer.append("Commands /help /trade /price /figi [name] /period [sec]");
+        answer.append("Commands /help /trade /price /figi [name] /period [sec] /strategy");
         return  answer;
     }
 
@@ -297,7 +338,7 @@ public class Bot {
 
     public BotAnswer ordersService(InvestApi api, String figi, String mainAccount, OrderDirection direction) {
         //Выставляем заявку
-        BotAnswer answer = new BotAnswer();
+        answer = new BotAnswer();
 
         if (mainAccount == null) {
             answer.append(NO_SELECT_LIST_ACCOUNT_FOR_TRADING);
@@ -447,6 +488,7 @@ public class Bot {
         answer.append("account id " + account + '\n'+"access level: "+ name + '\n');
 
         answer.appendln("Trading period, sec = " + Bot.PERIOD);
+        answer.appendln("Strategy class " + tradeService.getClass().getName());
         answer.addBtm("/orders");
         answer.addBtm("/start");
         answer.addBtm("/done");
@@ -475,12 +517,12 @@ public class Bot {
 
     public BotAnswer startTradeService(InvestApi api){
         answer = new BotAnswer();
-        TradeService trade = new TradeService(this);
+       // TradeService trade = new TradeService(this);
         if (scheduledExecutorService == null) {
             scheduledExecutorService = Executors.newScheduledThreadPool(5);
             ScheduledFuture scheduled =
                     scheduledExecutorService.scheduleAtFixedRate(
-                            trade, INITIAL_DELAY, PERIOD, TimeUnit.SECONDS);
+                            tradeService, INITIAL_DELAY, PERIOD, TimeUnit.SECONDS);
             answer.appendln(START_TRADE_SERVICE);
         } else {
             answer.appendln(TRADE_SERVICE_ALL_READY_RUN);

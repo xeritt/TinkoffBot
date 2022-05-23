@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Configuration;
 public class SpringBootConfiguration {
     @Bean
     public OpenAPI customOpenAPI() {
-        return new OpenAPI().components(new Components()).info(new Info().title("SpringBoot H2 hello example service")
-                .description("Hello example REST service"));
+        return new OpenAPI().components(new Components()).info(new Info().title("SpringBoot Tinkoff service")
+                .description("REST service Tinkoff Bot"));
     }
 }

@@ -43,8 +43,8 @@ public class TelegrammBot extends TelegramLongPollingBot {
             String message = update.getMessage().getText().trim();
             SendMessage sm = new SendMessage();
 
-            Bot bot = new Bot();
-            bot.init(tinkofftoken, figa, this);
+            Bot bot = new Bot(tinkofftoken, figa, this);
+            //bot.init();
 
             chatId = update.getMessage().getChatId().toString();
             BotAnswer answer = bot.execCommands(message);
