@@ -26,9 +26,13 @@ import static ru.tinkoff.piapi.core.utils.MapperUtils.quotationToBigDecimal;
 
 @Component
 public class Bot {
+    public static final String START_TRADE_SERVICE = "Start Trade Service";
     static final Logger log = LoggerFactory.getLogger(Bot.class);
     public static final String NO_SELECT_LIST_ACCOUNT_FOR_TRADING = "NO SELECT(/list) ACCOUNT FOR TRADING!";
     public static final String NO_SELECT_DIRECTION = "NO SELECT DIRECTION FOR TRADING";
+    public static final String STOP_TRADE_SERVICE = "Stop Trade Service";
+    public static final String SERVICE_NOT_WORKING = "Service not working";
+    public static final String TRADE_SERVICE_ALL_READY_RUN = "Trade Service all ready run";
     public static int INITIAL_DELAY = 1;
     public static int PERIOD = 2;
     public static InvestApi api;
@@ -59,25 +63,27 @@ public class Bot {
     }
 
     public BotAnswer execCommands(String operation) {
-        System.out.println(operation);
+        //System.out.println(operation);
         StringTokenizer st = new StringTokenizer(operation, " ");
-        System.out.println(st.countTokens());
+        //System.out.println(st.countTokens());
         int count = st.countTokens();
-
         if (count == 0 ) return null;
 
         operation = st.nextToken();
         String param = "";
-        System.out.println(operation);
+        //System.out.println(operation);
         InvestApi api = Bot.api;
 
         if (count > 1 ) {
             param = st.nextToken();
-            System.out.println(param);
-            if (operation.equalsIgnoreCase("/list"))
+            //System.out.println(param);
+            if (operation.equalsIgnoreCase("/list")) {
                 return listOrders(api, param);
-            if (operation.equalsIgnoreCase("/stop"))
-                return stopOrder(api, param);
+            }
+            if (operation.equalsIgnoreCase("/stop")) {
+                stopOrder(api, param);
+                return listOrders(api, account);
+            }
             if (operation.equalsIgnoreCase("/figi")) {
                 return setFigi(api, param);
             }
@@ -317,7 +323,7 @@ public class Bot {
         answer.append("\n");
 
         Quotation price = Quotation.newBuilder().setUnits(lastPrice.getUnits() - minPriceIncrement.getUnits() * 10)
-                .setNano(lastPrice.getNano() - minPriceIncrement.getNano() * 100).build();
+                .setNano(lastPrice.getNano() - minPriceIncrement.getNano() * 10).build();
         log.info("price = {}", price);
         answer.append("price = " + price);
         answer.append("\n");
@@ -339,7 +345,7 @@ public class Bot {
     }
 
     public BotAnswer stopOrder(InvestApi api, String orderId){
-        BotAnswer answer = new BotAnswer();
+        answer = new BotAnswer();
         SandboxService service = getService(api);
         //String mainAccount = getAccount(service);
         service.cancelOrder(account, orderId);
@@ -475,18 +481,23 @@ public class Bot {
             ScheduledFuture scheduled =
                     scheduledExecutorService.scheduleAtFixedRate(
                             trade, INITIAL_DELAY, PERIOD, TimeUnit.SECONDS);
-            answer.appendln("Start Trade Service");
+            answer.appendln(START_TRADE_SERVICE);
         } else {
-            answer.appendln("Trade Service all ready run");
+            answer.appendln(TRADE_SERVICE_ALL_READY_RUN);
         }
         return answer;
     }
 
     public BotAnswer stopTradeService(InvestApi api){
         answer = new BotAnswer();
-        scheduledExecutorService.shutdown();
-        scheduledExecutorService = null;
-        answer.appendln("Stop Trade Service");
+        if (scheduledExecutorService != null) {
+            scheduledExecutorService.shutdown();
+            scheduledExecutorService = null;
+            answer.appendln(STOP_TRADE_SERVICE);
+        }  else {
+            answer.appendln(SERVICE_NOT_WORKING);
+        }
+
         return answer;
     }
 
